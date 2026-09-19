@@ -266,8 +266,11 @@ For Cloudflare Pages use:
 - Output directory: `dist`
 - Environment variable: `API_BASE_URL=https://planetary-max.jurreaumax.workers.dev`
 
-`VITE_API_BASE_URL` is also accepted. Once DNS is active, set either variable
-to `https://api.portal-os.com` and rebuild the Pages deployment.
+`VITE_API_BASE_URL` is also accepted. The build rejects the inactive
+`https://api.portal-os.com` hostname and falls back to the Workers URL. Once
+the custom domain's Cloudflare DNS and TLS are active, set either URL variable
+to `https://api.portal-os.com`, set `PORTAL_OS_CUSTOM_DOMAIN_ACTIVE=true`, and
+rebuild the Pages deployment.
 
 Set `MAXOS_MODULE` to the installed MAX-OS-1 Python module exporting
 `MaxOsUnifiedOrchestrator`. Without it, a deterministic in-memory universe is
