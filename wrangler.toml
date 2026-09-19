@@ -13,14 +13,7 @@ MAXOS_MODULE = "local"
 PLANETARY_MODE = "single"
 UMBRELLA_ENFORCEMENT = "strict"
 
-# ============================================================
-# Worker Routes (activate after DNS)
-# ============================================================
-# Uncomment these once Cloudflare marks your zone as Active:
-#
-# routes = [
-#   { pattern = "api.portal-os.com", custom_domain = true }
-# ]
+
 
 # ============================================================
 # Build Configuration
