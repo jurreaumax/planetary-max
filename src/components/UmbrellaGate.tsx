@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { LoginModal } from './LoginModal';
 import { useUAL } from '../umbrella/UALProvider';
 
 export interface UmbrellaGateProps {
@@ -7,14 +8,13 @@ export interface UmbrellaGateProps {
   offline?: ReactNode;
 }
 
-/** Protects the desktop surface until authentication and the worker are ready. */
 export function UmbrellaGate({ children, login, offline }: UmbrellaGateProps): JSX.Element {
-  const { state } = useUAL();
+  const { state, setToken } = useUAL();
   if (!state.token || !state.sessionValid) {
-    return <>{login ?? <div role="dialog" aria-label="Login">Please sign in to Portal-OS.</div>}</>;
+    return <>{login ?? <LoginModal onSave={setToken} />}</>;
   }
   if (!state.workerOnline) {
-    return <>{offline ?? <div role="alert">Portal-OS worker is offline.</div>}</>;
+    return <>{offline ?? <div role="alert">Worker offline</div>}</>;
   }
   return <>{children}</>;
 }
