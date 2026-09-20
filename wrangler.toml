@@ -1,15 +1,25 @@
 name = "planetary-max"
 main = "src/index.ts"
-compatibility_date = "2024-09-01"
-workers_dev = true
-routes = [
-  { pattern = "api.portal-os.com/*", zone_name = "portal-os.com" }
+compatibility_date = "2024-09-20"
+compatibility_flags = ["nodejs_compat"]
+
+[durable_objects]
+bindings = [
+  { name = "PORTAL_KERNEL", class_name = "PortalKernel" }
 ]
 
-[vars]
-PLANETARY_MODE = "single"
-UMBRELLA_ENFORCEMENT = "strict"
-MAXOS_MODULE = "local"
+[migrations]
+[[migrations]]
+tag = "v1"
+new_classes = ["PortalKernel"]
 
-[build]
-command = "npm run build"
+[env.production]
+name = "planetary-max-production"
+main = "src/index.ts"
+compatibility_date = "2024-09-20"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production.durable_objects]
+bindings = [
+  { name = "PORTAL_KERNEL", class_name = "PortalKernel" }
+]
