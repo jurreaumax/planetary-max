@@ -1,19 +1,32 @@
 name = "planetary-max"
 main = "src/index.ts"
-compatibility_date = "2024-09-01"
-compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+compatibility_date = "2024-09-20"
+compatibility_flags = ["nodejs_compat"]
 
-[observability]
-enabled = true
+# Your Worker runs Hono + Vite bundle output.
+# Cloudflare Workers Deployments will auto‑bundle using Wrangler.
 
-# Top-level vars intentionally omitted — Wrangler does NOT inherit them into env.production
-
+# Bindings for production environment
 [env.production]
-name = "planetary-max"
-workers_dev = true
+name = "planetary-max-production"
+main = "src/index.ts"
+compatibility_date = "2024-09-20"
+compatibility_flags = ["nodejs_compat"]
 
-[env.production.vars]
-API_BASE_URL = "https://planetary-max.jurreaumax.workers.dev"
-MAXOS_MODULE = "local"
-PLANETARY_MODE = "single"
-UMBRELLA_ENFORCEMENT = "strict"
+# KV, Durable Objects, R2, D1, Queues, etc.
+# Add these only if your Worker uses them.
+# Example structure (commented out):
+#
+# [[env.production.kv_namespaces]]
+# binding = "MY_KV"
+# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+#
+# [[env.production.durable_objects.bindings]]
+# name = "MY_OBJECT"
+# class_name = "MyDurableObject"
+#
+# [env.production.r2_buckets]
+# MY_BUCKET = { bucket_name = "my-bucket" }
+
+# If you use secrets, Wrangler will manage them automatically:
+# wrangler secret put MY_SECRET
