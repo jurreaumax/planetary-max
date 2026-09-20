@@ -18,6 +18,7 @@ type Bindings = {
   KERNEL_URL?: string;
   PLANETARY_MODE?: string;
   UMBRELLA_ENFORCEMENT?: string;
+  PORTAL_KERNEL?: any;
 };
 
 type KernelResult = {
@@ -49,13 +50,12 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'OPTIONS'],
 }));
 
-// ⭐ ROOT ROUTE — this fixes the 404 at /
 app.get('/', (c) => {
   return c.json({
     status: 'Portal‑OS live',
-    worker: 'plantetary-max',
+    worker: 'planetary-max',
     mode: c.env.PLANETARY_MODE,
-    umbrella: c.env.UMBRELLA_ENFORCEMENT
+    umbrella: c.env.UMBRELLA_ENFORCEMENT,
   });
 });
 
@@ -246,12 +246,19 @@ async function callKernel(env: Bindings, envelope: KernelEnvelope): Promise<Resp
     headers: { 'Content-Type': 'application/json' },
     body,
   });
+
+  if (env.PORTAL_KERNEL) {
+    const id = env.PORTAL_KERNEL.idFromName('portal-kernel');
+    const kernel = env.PORTAL_KERNEL.get(id);
+    return kernel.fetch(request);
+  }
+
   if (env.KERNEL_SERVICE) return env.KERNEL_SERVICE.fetch(request);
   if (env.KERNEL_URL) {
     const target = `${env.KERNEL_URL.replace(/\/$/, '')}/api/kernel/message`;
     return fetch(target, { method: 'POST', headers: request.headers, body });
   }
-  throw new Error('Configure KERNEL_SERVICE or KERNEL_URL');
+  throw new Error('Configure PORTAL_KERNEL, KERNEL_SERVICE or KERNEL_URL');
 }
 
 function bearerToken(header: string | undefined): string | null {
@@ -270,5 +277,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+export default {
+  async fetch(request: Request, env: Bindings, ctx: ExecutionContext): Promise<Response> {
+    if (env.PORTAL_KERNEL) {
+      const id = env.PORTAL_KERNEL.idFromName('portal-kernel');
+      const kernel = env.PORTAL_KERNEL.get(id);
+      return kernel.fetch(request);
+    }
+    return app.fetch(request, env, ctx);
+  },
+};
+
 export { app, createEnvelope, extractLaneData, normalizeResponse };
-export default app;
