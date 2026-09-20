@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "deploy": "wrangler deploy --env production",
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "test:worker": "vitest run tests/worker.integration.test.ts"
