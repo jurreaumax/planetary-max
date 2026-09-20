@@ -3,35 +3,19 @@ main = "src/index.ts"
 compatibility_date = "2024-09-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
-# ============================================================
-# Environment Variables (Worker-side)
-# ============================================================
 [vars]
 API_BASE_URL = "https://planetary-max.jurreau2.workers.dev"
-
 MAXOS_MODULE = "local"
 PLANETARY_MODE = "single"
 UMBRELLA_ENFORCEMENT = "strict"
 
-
-
-# ============================================================
-# Build Configuration
-# ============================================================
 [build]
 command = "npm run build"
 cwd = "."
 
-# ============================================================
-# CORS (Umbrella Edge)
-# ============================================================
 [observability]
 enabled = true
 
-# ============================================================
-# Durable Objects (optional future use)
-# ============================================================
-# [durable_objects]
-# bindings = [
-#   { name = "STATE", class_name = "StateObject" }
-# ]
+[env.production]
+name = "planetary-max"
+workers_dev = true
