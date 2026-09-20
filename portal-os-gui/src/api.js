@@ -2,13 +2,12 @@
 // Portal‑OS GUI — Umbrella API Binding (Final, Complete)
 // ============================================================
 
-// Bind GUI → Worker API using Vite environment variables.
+// Bind GUI → the API URL selected and validated by vite.config.js.
 // Trailing slash is removed for safety.
-export const API_BASE_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.API_BASE_URL ||
+export const API_BASE_URL = import.meta.env.PORTAL_API_BASE_URL.replace(
+  /\/$/,
   ''
-).replace(/\/$/, '');
+);
 
 // All 8 Umbrella lanes (SET 1–4)
 export const UMBRELLA_LANES = [
@@ -68,9 +67,7 @@ export const UMBRELLA_LANES = [
 
 export async function callUmbrellaLane(path, body, bearerToken) {
   if (!API_BASE_URL) {
-    throw new Error(
-      'API base URL is not configured. Set VITE_API_BASE_URL or API_BASE_URL.'
-    );
+    throw new Error('API base URL is not configured.');
   }
 
   if (!bearerToken || !bearerToken.trim()) {
