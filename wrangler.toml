@@ -3,20 +3,18 @@ main = "src/index.ts"
 compatibility_date = "2024-09-20"
 compatibility_flags = ["nodejs_compat"]
 
-# Your Worker runs Hono + Vite bundle output.
-# Cloudflare Workers Deployments will auto‑bundle using Wrangler.
-
-# Bindings for production environment
+# Default environment (used by `wrangler deploy`)
+# Production environment (used by `wrangler deploy --env production`)
 [env.production]
 name = "planetary-max-production"
 main = "src/index.ts"
 compatibility_date = "2024-09-20"
 compatibility_flags = ["nodejs_compat"]
 
-# KV, Durable Objects, R2, D1, Queues, etc.
-# Add these only if your Worker uses them.
-# Example structure (commented out):
+# Add bindings here if needed:
+# KV, DO, R2, D1, Queues, Secrets, etc.
 #
+# Example:
 # [[env.production.kv_namespaces]]
 # binding = "MY_KV"
 # id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -27,6 +25,3 @@ compatibility_flags = ["nodejs_compat"]
 #
 # [env.production.r2_buckets]
 # MY_BUCKET = { bucket_name = "my-bucket" }
-
-# If you use secrets, Wrangler will manage them automatically:
-# wrangler secret put MY_SECRET
