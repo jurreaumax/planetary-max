@@ -1,22 +1,13 @@
-import type { ReactNode } from 'react';
-import { LoginModal } from './LoginModal';
+import React from 'react';
 import { useUAL } from '../umbrella/UALProvider';
+import { LoginModal } from './LoginModal';
+import { OfflineScreen } from './OfflineScreen';
 
-export interface UmbrellaGateProps {
-  children: ReactNode;
-  login?: ReactNode;
-  offline?: ReactNode;
-}
-
-export function UmbrellaGate({ children, login, offline }: UmbrellaGateProps): JSX.Element {
+export const UmbrellaGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { state, setToken } = useUAL();
-  if (!state.token || !state.sessionValid) {
-    return <>{login ?? <LoginModal onSave={setToken} />}</>;
-  }
-  if (!state.workerOnline) {
-    return <>{offline ?? <div role="alert">Worker offline</div>}</>;
-  }
+  if (!state.token || !state.sessionValid) return <LoginModal onSave={setToken} />;
+  if (!state.workerOnline) return <OfflineScreen />;
   return <>{children}</>;
-}
+};
 
 export default UmbrellaGate;
