@@ -1,13 +1,17 @@
 name = "planetary-max"
 main = "src/index.ts"
 compatibility_date = "2024-09-01"
-compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+workers_dev = true
+compatibility_flags = [
+  "nodejs_compat",
+  "global_fetch_strictly_public"
+]
 
 # ============================================================
 # Environment Variables (Worker-side)
 # ============================================================
 [vars]
-API_BASE_URL = "https://planetary-max.jurreau2.workers.dev"
+API_BASE_URL = "https://planetary-max.jurreaumax.workers.dev"
 
 MAXOS_MODULE = "local"
 PLANETARY_MODE = "single"
