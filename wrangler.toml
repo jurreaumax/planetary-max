@@ -10,15 +10,14 @@ cwd = "."
 [observability]
 enabled = true
 
-# Top-level vars removed — Wrangler does NOT inherit them into env.production
-# They must be placed inside env.production.vars
+# Top-level vars intentionally omitted — Wrangler does NOT inherit them into env.production
 
 [env.production]
 name = "planetary-max"
 workers_dev = true
 
 [env.production.vars]
-API_BASE_URL = "https://planetary-max.jurreau2.workers.dev"
+API_BASE_URL = "https://planetary-max.jurreaumax.workers.dev"
 MAXOS_MODULE = "local"
 PLANETARY_MODE = "single"
 UMBRELLA_ENFORCEMENT = "strict"
