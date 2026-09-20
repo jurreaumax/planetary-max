@@ -126,12 +126,15 @@ printf '%s' '{"id":"demo","type":"sim","payload":{},"identity":"a-locally-genera
 
 Identity tokens are loaded from `PORTAL_SYSTEM_TOKEN`, `PORTAL_SERVICE_TOKEN`,
 and `PORTAL_OBSERVER_TOKEN`; there are no built-in production credentials.
-The GUI must send one of those exact configured values as
-`Authorization: Bearer <token>`. The Worker forwards the token unchanged and
-the kernel registry remains authoritative: the service token has operator
+Use independently generated, opaque URL-safe values backed by 32–64 random
+bytes. The GUI must send one exact configured value as
+`Authorization: Bearer <token>`. The Worker classifies it as `admin`,
+`operator`, or `observer` and sends the kernel an identity envelope containing
+the subject, role, capabilities, and a proof. The kernel independently checks
+that proof and rejects a forged classification. The service token has operator
 access, the observer token can read autonomy/universe state, and observers are
 denied access to `POST /universe/tick`. Keep these values in deployment secrets;
-do not hard-code them in browser bundles or logs.
+do not hard-code them in browser bundles, logs, or repository files.
 
 The high-level Worker endpoints (`GET /api/autonomy`, `GET /universe/state`,
 `GET /universe/umbrella`, and `POST /universe/tick`) return a shared contract:
@@ -146,6 +149,19 @@ status. GUI clients should parse the JSON response before throwing and display
 `FORBIDDEN`, or `INVALID_MESSAGE`).
 
 ### Umbrella licensing exports
+
+The five core Umbrella physics lanes are exposed under `/api/umbrella/*`:
+
+- `POST /api/umbrella/identity`
+- `POST /api/umbrella/governance`
+- `POST /api/umbrella/structural`
+- `POST /api/umbrella/physics`
+- `POST /api/umbrella/routing`
+
+Each lane returns normalized JSON with the verified identity envelope in
+`meta.identity` and its active physics contract in `data`. Licensed product
+routes below are also available with the `/api` prefix; the legacy `/umbrella/*`
+paths remain available for existing clients.
 
 The Worker exposes two kernel-authorized SIM product exports:
 
@@ -275,6 +291,35 @@ rebuild the Pages deployment.
 Set `MAXOS_MODULE` to the installed MAX-OS-1 Python module exporting
 `MaxOsUnifiedOrchestrator`. Without it, a deterministic in-memory universe is
 used for local development and integration tests.
+
+### Production deployment
+
+The edge Worker declares `KERNEL_SERVICE -> portal-kernel` in the production
+environment. Deploy the private Python kernel first, then deploy the edge
+Worker so Wrangler can resolve the service binding:
+
+```bash
+npx wrangler login
+
+# Configure the same independently generated values on both Workers.
+npx wrangler secret put PORTAL_SYSTEM_TOKEN --env production
+npx wrangler secret put PORTAL_SERVICE_TOKEN --env production
+npx wrangler secret put PORTAL_OBSERVER_TOKEN --env production
+
+cd portal-kernel-worker
+uv sync --locked
+bash kernel_cli.sh secret put PORTAL_SYSTEM_TOKEN --env production
+bash kernel_cli.sh secret put PORTAL_SERVICE_TOKEN --env production
+bash kernel_cli.sh secret put PORTAL_OBSERVER_TOKEN --env production
+bash kernel_cli.sh deploy --env production
+cd ..
+npx wrangler deploy --env production
+```
+
+Generate each secret locally and paste it only into Wrangler's prompt, for
+example `python -c 'import secrets; print(secrets.token_urlsafe(32))'`. Do not
+reuse one value for multiple roles. Use `npx wrangler deploy --dry-run --env
+production` to validate the edge artifact without publishing it.
 
 ## Development
 

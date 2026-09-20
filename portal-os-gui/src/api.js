@@ -4,58 +4,88 @@
 
 // Bind GUI → the API URL selected and validated by vite.config.js.
 // Trailing slash is removed for safety.
-export const API_BASE_URL = import.meta.env.PORTAL_API_BASE_URL.replace(
+export const API_BASE_URL = (typeof __PORTAL_API_BASE_URL__ === 'string' ? __PORTAL_API_BASE_URL__ : '').replace(
   /\/$/,
   ''
 );
 
-// All 8 Umbrella lanes (SET 1–4)
+// Core physics lanes plus the 8 licensed product lanes (SET 1–4).
 export const UMBRELLA_LANES = [
   {
-    path: '/umbrella/identity/license',
+    path: '/api/umbrella/identity',
     code: 'ID',
+    title: 'Identity Layer',
+    summary: 'Inspect the classified subject, role, and capabilities.',
+  },
+  {
+    path: '/api/umbrella/governance',
+    code: 'GV',
+    title: 'Governance Physics',
+    summary: 'Inspect permissions, constraints, and active rules.',
+  },
+  {
+    path: '/api/umbrella/structural',
+    code: 'ST',
+    title: 'Structural Physics',
+    summary: 'Inspect the OS, engine, and simulation structure.',
+  },
+  {
+    path: '/api/umbrella/physics',
+    code: 'PH',
+    title: 'Umbrella Physics',
+    summary: 'Inspect the active physics layers and enforcement mode.',
+  },
+  {
+    path: '/api/umbrella/routing',
+    code: 'RT',
+    title: 'Routing Physics',
+    summary: 'Inspect lane selection and envelope dispatch.',
+  },
+  {
+    path: '/api/umbrella/identity/license',
+    code: 'IL',
     title: 'Identity Physics',
     summary: 'Resolve identity signatures and stability curvature.',
   },
   {
-    path: '/umbrella/governance/license',
-    code: 'GV',
+    path: '/api/umbrella/governance/license',
+    code: 'GL',
     title: 'Governance Engine',
     summary: 'Inspect structures, alignment, and collapse vectors.',
   },
   {
-    path: '/umbrella/apex/advisory',
+    path: '/api/umbrella/apex/advisory',
     code: 'AP',
     title: 'Apex Advisory',
     summary: 'Generate deterministic apex alignment guidance.',
   },
   {
-    path: '/umbrella/sim/pack',
+    path: '/api/umbrella/sim/pack',
     code: 'SM',
     title: 'SIM Pack',
     summary: 'Compose licensed simulation products into one pack.',
   },
   {
-    path: '/umbrella/market/forecast',
+    path: '/api/umbrella/market/forecast',
     code: 'MK',
     title: 'Market Forecast',
     summary: 'Project trends, volatility, and market risk.',
   },
   {
-    path: '/umbrella/identity/mirror',
+    path: '/api/umbrella/identity/mirror',
     code: 'MR',
     title: 'Identity Mirror',
     summary: 'Mirror behavior and structural identity truth.',
   },
   {
-    path: '/umbrella/crossworld/access',
+    path: '/api/umbrella/crossworld/access',
     code: 'CW',
     title: 'Crossworld Access',
     summary: 'Map licensed traversal across reachable worlds.',
   },
   {
-    path: '/umbrella/structural/truth/license',
-    code: 'ST',
+    path: '/api/umbrella/structural/truth/license',
+    code: 'SL',
     title: 'Structural Truth',
     summary: 'License structural evidence and contradiction vectors.',
   },
@@ -65,8 +95,8 @@ export const UMBRELLA_LANES = [
 // Umbrella Lane Caller
 // ============================================================
 
-export async function callUmbrellaLane(path, body, bearerToken) {
-  if (!API_BASE_URL) {
+export async function callUmbrellaLane(path, body, bearerToken, apiBaseUrl = API_BASE_URL) {
+  if (!apiBaseUrl) {
     throw new Error('API base URL is not configured.');
   }
 
@@ -79,7 +109,7 @@ export async function callUmbrellaLane(path, body, bearerToken) {
   const timeout = window.setTimeout(() => controller.abort(), 15_000);
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`${apiBaseUrl}${path}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${bearerToken.trim()}`,
@@ -109,6 +139,7 @@ export async function callUmbrellaLane(path, body, bearerToken) {
         'Umbrella request failed';
 
       const error = new Error(`${code}: ${message}`);
+      error.code = code;
       error.payload = payload;
       throw error;
     }
@@ -116,9 +147,14 @@ export async function callUmbrellaLane(path, body, bearerToken) {
     return payload;
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error('The Worker did not respond within 15 seconds.');
+      const timeoutError = new Error('The Worker did not respond within 15 seconds.');
+      timeoutError.code = 'WORKER_TIMEOUT';
+      throw timeoutError;
     }
-    throw error;
+    if (error?.code) throw error;
+    const unavailableError = new Error('The Worker is unavailable or blocked by the network.');
+    unavailableError.code = 'WORKER_UNAVAILABLE';
+    throw unavailableError;
   } finally {
     window.clearTimeout(timeout);
   }

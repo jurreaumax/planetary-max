@@ -5,8 +5,17 @@ type KernelEnvelope = {
   id: string;
   type: string;
   payload: Record<string, unknown>;
-  identity: string;
+  identity: IdentityEnvelope;
   governanceContext: Record<string, unknown>;
+};
+
+type IdentityRole = 'admin' | 'operator' | 'observer';
+
+type IdentityEnvelope = {
+  subject: string;
+  role: IdentityRole;
+  capabilities: string[];
+  proof: string;
 };
 
 type KernelService = {
@@ -18,6 +27,9 @@ type Bindings = {
   KERNEL_URL?: string;
   PLANETARY_MODE?: string;
   UMBRELLA_ENFORCEMENT?: string;
+  PORTAL_SYSTEM_TOKEN?: string;
+  PORTAL_SERVICE_TOKEN?: string;
+  PORTAL_OBSERVER_TOKEN?: string;
 };
 
 type KernelResult = {
@@ -39,7 +51,54 @@ type UmbrellaOperation =
   | 'umbrella.market.forecast'
   | 'umbrella.identity.mirror'
   | 'umbrella.crossworld.access'
-  | 'structural.truth.license';
+  | 'structural.truth.license'
+  | 'umbrella.identity'
+  | 'umbrella.governance'
+  | 'umbrella.structural'
+  | 'umbrella.physics'
+  | 'umbrella.routing';
+
+const ROLE_IDENTITIES: Record<IdentityRole, Omit<IdentityEnvelope, 'proof'>> = {
+  admin: {
+    subject: 'system',
+    role: 'admin',
+    capabilities: ['*'],
+  },
+  operator: {
+    subject: 'portal-worker',
+    role: 'operator',
+    capabilities: ['umbrella:read', 'umbrella:operate', 'universe:read', 'universe:write'],
+  },
+  observer: {
+    subject: 'observer',
+    role: 'observer',
+    capabilities: ['umbrella:read', 'universe:read'],
+  },
+};
+
+const UMBRELLA_ROUTES: ReadonlyArray<readonly [string, UmbrellaOperation]> = [
+  ['/umbrella/identity/license', 'identity.physics.license'],
+  ['/umbrella/governance/license', 'governance.engine.license'],
+  ['/umbrella/apex/advisory', 'apex.alignment.advisory'],
+  ['/umbrella/sim/pack', 'umbrella.sim.pack'],
+  ['/umbrella/market/forecast', 'umbrella.market.forecast'],
+  ['/umbrella/identity/mirror', 'umbrella.identity.mirror'],
+  ['/umbrella/crossworld/access', 'umbrella.crossworld.access'],
+  ['/umbrella/structural/truth/license', 'structural.truth.license'],
+  ['/api/umbrella/identity/license', 'identity.physics.license'],
+  ['/api/umbrella/governance/license', 'governance.engine.license'],
+  ['/api/umbrella/apex/advisory', 'apex.alignment.advisory'],
+  ['/api/umbrella/sim/pack', 'umbrella.sim.pack'],
+  ['/api/umbrella/market/forecast', 'umbrella.market.forecast'],
+  ['/api/umbrella/identity/mirror', 'umbrella.identity.mirror'],
+  ['/api/umbrella/crossworld/access', 'umbrella.crossworld.access'],
+  ['/api/umbrella/structural/truth/license', 'structural.truth.license'],
+  ['/api/umbrella/identity', 'umbrella.identity'],
+  ['/api/umbrella/governance', 'umbrella.governance'],
+  ['/api/umbrella/structural', 'umbrella.structural'],
+  ['/api/umbrella/physics', 'umbrella.physics'],
+  ['/api/umbrella/routing', 'umbrella.routing'],
+];
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -53,7 +112,7 @@ app.use('*', cors({
 app.get('/', (c) => {
   return c.json({
     status: 'Portal‑OS live',
-    worker: 'plantetary-max',
+    worker: 'planetary-max',
     mode: c.env.PLANETARY_MODE,
     umbrella: c.env.UMBRELLA_ENFORCEMENT
   });
@@ -62,8 +121,9 @@ app.get('/', (c) => {
 app.get('/health', (c) => c.json({ status: 'ok', service: 'portal-os-worker' }));
 
 app.post('/api/kernel/message', async (c) => {
-  const identity = bearerToken(c.req.header('Authorization'));
-  if (!identity) return c.json({ ok: false, error: { code: 'UNAUTHENTICATED', message: 'Bearer token required' } }, 401);
+  const authorization = c.req.header('Authorization');
+  const identity = classifyIdentity(c.env, authorization);
+  if (!identity) return identityError(authorization);
 
   let body: unknown;
   try {
@@ -90,54 +150,14 @@ app.post('/api/kernel/message', async (c) => {
 app.get('/api/autonomy', async (c) => normalizedRequest(c.env, c.req.header('Authorization'), 'autonomy.state', {}));
 app.get('/universe/state', async (c) => normalizedRequest(c.env, c.req.header('Authorization'), 'universe.state', {}));
 app.get('/universe/umbrella', async (c) => normalizedRequest(c.env, c.req.header('Authorization'), 'universe.umbrella', {}));
-app.post('/umbrella/identity/license', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'identity.physics.license',
-));
-app.post('/umbrella/governance/license', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'governance.engine.license',
-));
-app.post('/umbrella/apex/advisory', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'apex.alignment.advisory',
-));
-app.post('/umbrella/sim/pack', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'umbrella.sim.pack',
-));
-app.post('/umbrella/market/forecast', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'umbrella.market.forecast',
-));
-app.post('/umbrella/identity/mirror', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'umbrella.identity.mirror',
-));
-app.post('/umbrella/crossworld/access', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'umbrella.crossworld.access',
-));
-app.post('/umbrella/structural/truth/license', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'structural.truth.license',
-));
+for (const [path, operation] of UMBRELLA_ROUTES) {
+  app.post(path, async (c) => umbrellaRequest(
+    c.env,
+    c.req.header('Authorization'),
+    c.req.raw,
+    operation,
+  ));
+}
 app.post('/universe/tick', async (c) => {
   let payload: Record<string, unknown> = {};
   const contentType = c.req.header('Content-Type') ?? '';
@@ -159,10 +179,8 @@ async function normalizedRequest(
   type: string,
   payload: Record<string, unknown>,
 ): Promise<Response> {
-  const identity = bearerToken(authorization);
-  if (!identity) {
-    return Response.json({ ok: false, error: { code: 'UNAUTHENTICATED', message: 'Bearer token required' } }, { status: 401 });
-  }
+  const identity = classifyIdentity(env, authorization);
+  if (!identity) return identityError(authorization);
   return kernelResponse(env, createEnvelope(type, payload, identity, { surface: 'worker-api' }), true);
 }
 
@@ -172,10 +190,8 @@ async function umbrellaRequest(
   request: Request,
   type: UmbrellaOperation,
 ): Promise<Response> {
-  const identity = bearerToken(authorization);
-  if (!identity) {
-    return Response.json({ ok: false, error: { code: 'UNAUTHENTICATED', message: 'Bearer token required' } }, { status: 401 });
-  }
+  const identity = classifyIdentity(env, authorization);
+  if (!identity) return identityError(authorization);
   let payload: unknown;
   try {
     payload = await request.json();
@@ -195,7 +211,7 @@ async function umbrellaRequest(
 function createEnvelope(
   type: string,
   payload: Record<string, unknown>,
-  identity: string,
+  identity: IdentityEnvelope,
   governanceContext: Record<string, unknown>,
 ): KernelEnvelope {
   return { id: crypto.randomUUID(), type, payload, identity, governanceContext };
@@ -224,7 +240,7 @@ function normalizeResponse(result: KernelResult, envelope: KernelEnvelope): Reco
     meta: {
       messageId: result.messageId ?? envelope.id,
       type: result.type ?? envelope.type,
-      identity: result.identity ?? envelope.identity,
+      identity: result.identity ?? publicIdentity(envelope.identity),
       route: result.route ?? [],
     },
   };
@@ -259,6 +275,30 @@ function bearerToken(header: string | undefined): string | null {
   return match?.[1]?.trim() || null;
 }
 
+function classifyIdentity(env: Bindings, authorization: string | undefined): IdentityEnvelope | null {
+  const proof = bearerToken(authorization);
+  if (!proof) return null;
+  const matches: Array<Omit<IdentityEnvelope, 'proof'>> = [];
+  if (env.PORTAL_SYSTEM_TOKEN && proof === env.PORTAL_SYSTEM_TOKEN) matches.push(ROLE_IDENTITIES.admin);
+  if (env.PORTAL_SERVICE_TOKEN && proof === env.PORTAL_SERVICE_TOKEN) matches.push(ROLE_IDENTITIES.operator);
+  if (env.PORTAL_OBSERVER_TOKEN && proof === env.PORTAL_OBSERVER_TOKEN) matches.push(ROLE_IDENTITIES.observer);
+  if (matches.length !== 1) return null;
+  return { ...matches[0], capabilities: [...matches[0].capabilities], proof };
+}
+
+function publicIdentity(identity: IdentityEnvelope): Omit<IdentityEnvelope, 'proof'> {
+  return {
+    subject: identity.subject,
+    role: identity.role,
+    capabilities: [...identity.capabilities],
+  };
+}
+
+function identityError(authorization: string | undefined): Response {
+  const message = bearerToken(authorization) ? 'Invalid bearer token' : 'Bearer token required';
+  return Response.json({ ok: false, error: { code: 'UNAUTHENTICATED', message } }, { status: 401 });
+}
+
 function kernelErrorStatus(code: string | undefined): number {
   if (code === 'UNAUTHENTICATED') return 401;
   if (code === 'FORBIDDEN') return 403;
@@ -270,5 +310,5 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export { app, createEnvelope, extractLaneData, normalizeResponse };
+export { app, classifyIdentity, createEnvelope, extractLaneData, normalizeResponse };
 export default app;

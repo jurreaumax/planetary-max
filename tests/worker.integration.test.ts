@@ -5,8 +5,19 @@ import app, { extractLaneData } from '../src/index';
 type KernelEnvelope = {
   id: string;
   type: string;
-  identity: string;
+  identity: {
+    subject: string;
+    role: string;
+    capabilities: string[];
+    proof: string;
+  };
   payload: Record<string, unknown>;
+};
+
+const TOKENS = {
+  PORTAL_SYSTEM_TOKEN: 'shared-system-token',
+  PORTAL_SERVICE_TOKEN: 'shared-service-token',
+  PORTAL_OBSERVER_TOKEN: 'observer-token',
 };
 
 function successResponse(envelope: KernelEnvelope): Response {
@@ -14,7 +25,13 @@ function successResponse(envelope: KernelEnvelope): Response {
     ok: true,
     messageId: envelope.id,
     type: envelope.type,
-    identity: { id: envelope.identity, roles: ['operator'] },
+    identity: {
+      id: envelope.identity.subject,
+      subject: envelope.identity.subject,
+      role: envelope.identity.role,
+      roles: [envelope.identity.role],
+      capabilities: envelope.identity.capabilities,
+    },
     route: ['orchestration'],
     result: {
       lanes: [{
@@ -27,8 +44,12 @@ function successResponse(envelope: KernelEnvelope): Response {
   });
 }
 
-function bindings(handler: (envelope: KernelEnvelope) => Response | Promise<Response>) {
+function bindings(
+  handler: (envelope: KernelEnvelope) => Response | Promise<Response>,
+  tokens: Record<string, string> = TOKENS,
+) {
   return {
+    ...tokens,
     KERNEL_SERVICE: {
       async fetch(request: Request): Promise<Response> {
         return handler(await request.json<KernelEnvelope>());
@@ -59,6 +80,13 @@ describe('normalized Worker integration routes', () => {
     ['POST', '/umbrella/identity/mirror', 'umbrella.identity.mirror'],
     ['POST', '/umbrella/crossworld/access', 'umbrella.crossworld.access'],
     ['POST', '/umbrella/structural/truth/license', 'structural.truth.license'],
+    ['POST', '/api/umbrella/identity/license', 'identity.physics.license'],
+    ['POST', '/api/umbrella/governance/license', 'governance.engine.license'],
+    ['POST', '/api/umbrella/identity', 'umbrella.identity'],
+    ['POST', '/api/umbrella/governance', 'umbrella.governance'],
+    ['POST', '/api/umbrella/structural', 'umbrella.structural'],
+    ['POST', '/api/umbrella/physics', 'umbrella.physics'],
+    ['POST', '/api/umbrella/routing', 'umbrella.routing'],
   ])('normalizes %s %s lane data', async (method, path, type) => {
     let forwarded: KernelEnvelope | undefined;
     const response = await app.request(path, {
@@ -74,14 +102,28 @@ describe('normalized Worker integration routes', () => {
     }));
 
     expect(response.status).toBe(200);
-    expect(forwarded).toMatchObject({ type, identity: 'shared-service-token' });
+    expect(forwarded).toMatchObject({
+      type,
+      identity: {
+        subject: 'portal-worker',
+        role: 'operator',
+        capabilities: ['umbrella:read', 'umbrella:operate', 'universe:read', 'universe:write'],
+        proof: 'shared-service-token',
+      },
+    });
     expect(await response.json()).toEqual({
       ok: true,
       data: { operation: type, payload: method === 'POST' ? { changes: { population: 1 } } : {} },
       meta: {
         messageId: forwarded?.id,
         type,
-        identity: { id: 'shared-service-token', roles: ['operator'] },
+        identity: {
+          id: 'portal-worker',
+          subject: 'portal-worker',
+          role: 'operator',
+          roles: ['operator'],
+          capabilities: ['umbrella:read', 'umbrella:operate', 'universe:read', 'universe:write'],
+        },
         route: ['orchestration'],
       },
     });
@@ -102,14 +144,50 @@ describe('normalized Worker integration routes', () => {
     });
   });
 
+  it('rejects an unconfigured bearer token before calling the kernel', async () => {
+    let called = false;
+    const response = await app.request('/api/umbrella/identity', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer unconfigured-token', 'Content-Type': 'application/json' },
+      body: '{}',
+    }, bindings(() => {
+      called = true;
+      return Response.json({ ok: true });
+    }));
+
+    expect(response.status).toBe(401);
+    expect(called).toBe(false);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { code: 'UNAUTHENTICATED', message: 'Invalid bearer token' },
+    });
+  });
+
+  it.each([
+    ['shared-system-token', 'system', 'admin', ['*']],
+    ['shared-service-token', 'portal-worker', 'operator', ['umbrella:read', 'umbrella:operate', 'universe:read', 'universe:write']],
+    ['observer-token', 'observer', 'observer', ['umbrella:read', 'universe:read']],
+  ])('classifies the configured %s identity before dispatch', async (token, subject, role, capabilities) => {
+    const response = await app.request('/api/umbrella/identity', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    }, bindings((envelope) => {
+      expect(envelope.identity).toEqual({ subject, role, capabilities, proof: token });
+      return successResponse(envelope);
+    }));
+
+    expect(response.status).toBe(200);
+  });
+
   it('preserves a kernel rejection for an invalid bearer token', async () => {
     const response = await app.request('/api/autonomy', {
       headers: { Authorization: 'Bearer not-registered' },
-    }, bindings(() => Response.json({
+    }, { ...bindings(() => Response.json({
       ok: false,
       messageId: 'rejected-1',
       error: { code: 'UNAUTHENTICATED', message: 'invalid identity token' },
-    }, { status: 401 })));
+    }, { status: 401 })), PORTAL_SERVICE_TOKEN: 'not-registered' });
 
     expect(response.status).toBe(401);
     expect(await response.json()).toMatchObject({
@@ -148,7 +226,11 @@ describe('normalized Worker integration routes', () => {
       },
       body: JSON.stringify({ tier: 'enterprise', input: { subject: 'alpha' } }),
     }, bindings((envelope) => {
-      expect(envelope.identity).toBe('basic-license-token');
+      expect(envelope.identity).toMatchObject({
+        subject: 'observer',
+        role: 'observer',
+        proof: 'basic-license-token',
+      });
       expect(envelope.payload).toEqual({ tier: 'enterprise', input: { subject: 'alpha' } });
       return Response.json({
         ok: true,
@@ -170,7 +252,7 @@ describe('normalized Worker integration routes', () => {
           }],
         },
       });
-    }));
+    }, { ...TOKENS, PORTAL_OBSERVER_TOKEN: 'basic-license-token' }));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
@@ -190,7 +272,7 @@ describe('normalized Worker integration routes', () => {
     const response = await app.request('/umbrella/governance/license', {
       method: 'POST',
       headers: {
-        Authorization: 'Bearer professional-license-token',
+        Authorization: 'Bearer shared-service-token',
         'Content-Type': 'application/json',
       },
       body: '[]',
@@ -204,6 +286,20 @@ describe('normalized Worker integration routes', () => {
     expect(await response.json()).toEqual({
       ok: false,
       error: { code: 'INVALID_JSON', message: 'Umbrella payload must be an object' },
+    });
+  });
+
+  it('reports an unavailable kernel distinctly from an unauthorized identity', async () => {
+    const response = await app.request('/api/umbrella/routing', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer shared-service-token', 'Content-Type': 'application/json' },
+      body: '{}',
+    }, TOKENS);
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { code: 'KERNEL_UNAVAILABLE', message: 'Kernel bridge unavailable' },
     });
   });
 

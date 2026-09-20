@@ -1,0 +1,12 @@
+[project]
+name = "portal-kernel"
+version = "1.0.0"
+description = "Cloudflare Python Worker packaging for the Portal-OS kernel"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "workers-py>=1.9,<2",
+  "workers-runtime-sdk>=1.9,<2",
+]

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test vite.config.test.js"
+    "test": "node --test vite.config.test.js src/*.test.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
