@@ -3,15 +3,24 @@ import react from '@vitejs/plugin-react';
 
 const WORKERS_API_BASE_URL = 'https://planetary-max.jurreaumax.workers.dev';
 const CUSTOM_API_BASE_URL = 'https://api.portal-os.com';
+const CUSTOM_API_ORIGIN = new URL(CUSTOM_API_BASE_URL).origin;
 
-function resolveApiBaseUrl(configuredUrl, customDomainActive) {
+function getOrigin(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveApiBaseUrl(configuredUrl, customDomainActive) {
   const normalizedUrl = (configuredUrl || WORKERS_API_BASE_URL).replace(
     /\/+$/,
     ''
   );
 
   if (
-    normalizedUrl === CUSTOM_API_BASE_URL &&
+    getOrigin(normalizedUrl) === CUSTOM_API_ORIGIN &&
     customDomainActive !== 'true'
   ) {
     return WORKERS_API_BASE_URL;
