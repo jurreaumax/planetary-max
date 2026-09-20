@@ -110,7 +110,15 @@ This will execute the full boot sequence:
 
 Cloudflare Workers cannot start local subprocesses. Deploy the Python adapter
 separately and configure either a `KERNEL_SERVICE` service binding or a
-`KERNEL_URL` Worker variable. For local adapter development:
+`KERNEL_URL` Worker variable. Production is configured to bind
+`KERNEL_SERVICE` to the separate `portal-kernel` Worker. Deploy the named
+environment after that service exists:
+
+```bash
+npx wrangler deploy --env production
+```
+
+For local adapter development:
 
 ```bash
 python kernel/http_adapter.py --port 8788
