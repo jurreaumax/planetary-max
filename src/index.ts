@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 
 type KernelEnvelope = {
   id: string;
@@ -42,6 +43,12 @@ type UmbrellaOperation =
 
 const app = new Hono<{ Bindings: Bindings }>();
 
+app.use('*', cors({
+  origin: '*',
+  allowHeaders: ['Content-Type', 'Authorization'],
+  allowMethods: ['GET', 'POST', 'OPTIONS'],
+}));
+
 // ⭐ ROOT ROUTE — this fixes the 404 at /
 app.get('/', (c) => {
   return c.json({
@@ -71,66 +78,21 @@ app.post('/api/kernel/message', async (c) => {
   if (!isRecord(payload)) {
     return c.json({ ok: false, error: { code: 'INVALID_MESSAGE', message: 'type and object payload are required' } }, 400);
   }
-  const envelope = createEnvelope(
-    body.type,
-    payload,
-    identity,
-    isRecord(body.governanceContext) ? body.governanceContext : {},
-  );
+  const envelope = createEnvelope(body.type, payload, identity, isRecord(body.governanceContext) ? body.governanceContext : {});
   return kernelResponse(c.env, envelope);
 });
 
 app.get('/api/autonomy', async (c) => normalizedRequest(c.env, c.req.header('Authorization'), 'autonomy.state', {}));
 app.get('/universe/state', async (c) => normalizedRequest(c.env, c.req.header('Authorization'), 'universe.state', {}));
 app.get('/universe/umbrella', async (c) => normalizedRequest(c.env, c.req.header('Authorization'), 'universe.umbrella', {}));
-app.post('/umbrella/identity/license', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'identity.physics.license',
-));
-app.post('/umbrella/governance/license', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'governance.engine.license',
-));
-app.post('/umbrella/apex/advisory', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'apex.alignment.advisory',
-));
-app.post('/umbrella/sim/pack', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'umbrella.sim.pack',
-));
-app.post('/umbrella/market/forecast', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'umbrella.market.forecast',
-));
-app.post('/umbrella/identity/mirror', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'umbrella.identity.mirror',
-));
-app.post('/umbrella/crossworld/access', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'umbrella.crossworld.access',
-));
-app.post('/umbrella/structural/truth/license', async (c) => umbrellaRequest(
-  c.env,
-  c.req.header('Authorization'),
-  c.req.raw,
-  'umbrella.structural.truth.license',
-));
+app.post('/umbrella/identity/license', async (c) => umbrellaRequest(c.env, c.req.header('Authorization'), c.req.raw, 'identity.physics.license'));
+app.post('/umbrella/governance/license', async (c) => umbrellaRequest(c.env, c.req.header('Authorization'), c.req.raw, 'governance.engine.license'));
+app.post('/umbrella/apex/advisory', async (c) => umbrellaRequest(c.env, c.req.header('Authorization'), c.req.raw, 'apex.alignment.advisory'));
+app.post('/umbrella/sim/pack', async (c) => umbrellaRequest(c.env, c.req.header('Authorization'), c.req.raw, 'umbrella.sim.pack'));
+app.post('/umbrella/market/forecast', async (c) => umbrellaRequest(c.env, c.req.header('Authorization'), c.req.raw, 'umbrella.market.forecast'));
+app.post('/umbrella/identity/mirror', async (c) => umbrellaRequest(c.env, c.req.header('Authorization'), c.req.raw, 'umbrella.identity.mirror'));
+app.post('/umbrella/crossworld/access', async (c) => umbrellaRequest(c.env, c.req.header('Authorization'), c.req.raw, 'umbrella.crossworld.access'));
+app.post('/umbrella/structural/truth/license', async (c) => umbrellaRequest(c.env, c.req.header('Authorization'), c.req.raw, 'umbrella.structural.truth.license'));
 app.post('/universe/tick', async (c) => {
   let payload: Record<string, unknown> = {};
   const contentType = c.req.header('Content-Type') ?? '';
@@ -146,51 +108,26 @@ app.post('/universe/tick', async (c) => {
   return normalizedRequest(c.env, c.req.header('Authorization'), 'universe.tick', payload);
 });
 
-async function normalizedRequest(
-  env: Bindings,
-  authorization: string | undefined,
-  type: string,
-  payload: Record<string, unknown>,
-): Promise<Response> {
+async function normalizedRequest(env: Bindings, authorization: string | undefined, type: string, payload: Record<string, unknown>): Promise<Response> {
   const identity = bearerToken(authorization);
-  if (!identity) {
-    return Response.json({ ok: false, error: { code: 'UNAUTHENTICATED', message: 'Bearer token required' } }, { status: 401 });
-  }
+  if (!identity) return Response.json({ ok: false, error: { code: 'UNAUTHENTICATED', message: 'Bearer token required' } }, { status: 401 });
   return kernelResponse(env, createEnvelope(type, payload, identity, { surface: 'worker-api' }), true);
 }
 
-async function umbrellaRequest(
-  env: Bindings,
-  authorization: string | undefined,
-  request: Request,
-  type: UmbrellaOperation,
-): Promise<Response> {
+async function umbrellaRequest(env: Bindings, authorization: string | undefined, request: Request, type: UmbrellaOperation): Promise<Response> {
   const identity = bearerToken(authorization);
-  if (!identity) {
-    return Response.json({ ok: false, error: { code: 'UNAUTHENTICATED', message: 'Bearer token required' } }, { status: 401 });
-  }
+  if (!identity) return Response.json({ ok: false, error: { code: 'UNAUTHENTICATED', message: 'Bearer token required' } }, { status: 401 });
   let payload: unknown;
   try {
     payload = await request.json();
   } catch {
     return Response.json({ ok: false, error: { code: 'INVALID_JSON', message: 'Umbrella payload must be JSON' } }, { status: 400 });
   }
-  if (!isRecord(payload)) {
-    return Response.json({ ok: false, error: { code: 'INVALID_JSON', message: 'Umbrella payload must be an object' } }, { status: 400 });
-  }
-  return kernelResponse(
-    env,
-    createEnvelope(type, payload, identity, { surface: 'worker-umbrella' }),
-    true,
-  );
+  if (!isRecord(payload)) return Response.json({ ok: false, error: { code: 'INVALID_JSON', message: 'Umbrella payload must be an object' } }, { status: 400 });
+  return kernelResponse(env, createEnvelope(type, payload, identity, { surface: 'worker-umbrella' }), true);
 }
 
-function createEnvelope(
-  type: string,
-  payload: Record<string, unknown>,
-  identity: string,
-  governanceContext: Record<string, unknown>,
-): KernelEnvelope {
+function createEnvelope(type: string, payload: Record<string, unknown>, identity: string, governanceContext: Record<string, unknown>): KernelEnvelope {
   return { id: crypto.randomUUID(), type, payload, identity, governanceContext };
 }
 
@@ -203,24 +140,12 @@ async function kernelResponse(env: Bindings, envelope: KernelEnvelope, normalize
     return Response.json(normalizeResponse(result, envelope), { status });
   } catch (error) {
     console.error('Worker to kernel bridge failed', error);
-    return Response.json(
-      { ok: false, error: { code: 'KERNEL_UNAVAILABLE', message: 'Kernel bridge unavailable' } },
-      { status: 503 },
-    );
+    return Response.json({ ok: false, error: { code: 'KERNEL_UNAVAILABLE', message: 'Kernel bridge unavailable' } }, { status: 503 });
   }
 }
 
 function normalizeResponse(result: KernelResult, envelope: KernelEnvelope): Record<string, unknown> {
-  return {
-    ok: true,
-    data: extractLaneData(result),
-    meta: {
-      messageId: result.messageId ?? envelope.id,
-      type: result.type ?? envelope.type,
-      identity: result.identity ?? envelope.identity,
-      route: result.route ?? [],
-    },
-  };
+  return { ok: true, data: extractLaneData(result), meta: { messageId: result.messageId ?? envelope.id, type: result.type ?? envelope.type, identity: result.identity ?? envelope.identity, route: result.route ?? [] } };
 }
 
 function extractLaneData(response: unknown): unknown {
@@ -234,16 +159,9 @@ function extractLaneData(response: unknown): unknown {
 
 async function callKernel(env: Bindings, envelope: KernelEnvelope): Promise<Response> {
   const body = JSON.stringify(envelope);
-  const request = new Request('http://kernel/api/kernel/message', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-  });
+  const request = new Request('http://kernel/api/kernel/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
   if (env.KERNEL_SERVICE) return env.KERNEL_SERVICE.fetch(request);
-  if (env.KERNEL_URL) {
-    const target = `${env.KERNEL_URL.replace(/\/$/, '')}/api/kernel/message`;
-    return fetch(target, { method: 'POST', headers: request.headers, body });
-  }
+  if (env.KERNEL_URL) return fetch(`${env.KERNEL_URL.replace(/\/$/, '')}/api/kernel/message`, { method: 'POST', headers: request.headers, body });
   throw new Error('Configure KERNEL_SERVICE or KERNEL_URL');
 }
 
