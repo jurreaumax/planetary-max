@@ -15,6 +15,7 @@ from cognitive.licensing import (
     resolve_license_tier,
 )
 from maxos_bridge import get_umbrella_status, get_universe_state, start_universe, tick_universe
+from kernel.umbrella import activate_umbrella_lane
 from tec.surfaces import SubstrateSurface
 
 
@@ -64,6 +65,22 @@ class TECPipeline:
                 "operation": "autonomy.state",
                 "backend": "kernel",
                 "data": dict(self.autonomy_provider()),
+            }
+        if operation in {
+            "umbrella.identity",
+            "umbrella.governance",
+            "umbrella.structural",
+            "umbrella.physics",
+            "umbrella.routing",
+        }:
+            identity = task.get("identity")
+            if not isinstance(identity, Mapping):
+                raise PermissionError("Umbrella physics require a validated identity")
+            return {
+                "ok": True,
+                "operation": operation,
+                "backend": "kernel-umbrella",
+                "data": activate_umbrella_lane(operation, identity),
             }
         umbrella_exports = {
             "identity.physics.license": export_identity_physics,

@@ -45,7 +45,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      'import.meta.env.PORTAL_API_BASE_URL': JSON.stringify(apiBaseUrl),
+      __PORTAL_API_BASE_URL__: JSON.stringify(apiBaseUrl),
     },
     build: {
       outDir: 'dist',

@@ -422,6 +422,25 @@ h2 {
 .result-summary h3 { margin: 40px 0 9px; font-size: 25px; font-weight: 500; }
 .result-summary p { margin: 0; color: var(--muted); font: 300 10px 'DM Mono', monospace; }
 
+.identity-envelope {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font: 300 10px 'DM Mono', monospace;
+}
+
+.identity-envelope strong {
+  color: var(--warm);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.identity-envelope small { color: var(--muted); line-height: 1.5; }
+
 .result-grid pre {
   max-height: 500px;
   margin: 0;

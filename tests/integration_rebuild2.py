@@ -32,6 +32,15 @@ def envelope(message_id: str, message_type: str, payload: Dict[str, Any], identi
     }
 
 
+def classified_identity(subject: str, role: str, capabilities: list[str], proof: str) -> Dict[str, Any]:
+    return {
+        "subject": subject,
+        "role": role,
+        "capabilities": capabilities,
+        "proof": proof,
+    }
+
+
 class Rebuild2IntegrationTest(unittest.TestCase):
     def setUp(self) -> None:
         registry = IdentityRegistry()
@@ -73,6 +82,45 @@ class Rebuild2IntegrationTest(unittest.TestCase):
         denied = self.kernel.handle_message(envelope("governance-1", "universe.tick", {}, OBSERVER_TOKEN))
         self.assertFalse(denied["ok"])
         self.assertEqual(denied["error"]["code"], "FORBIDDEN")
+
+    def test_worker_classified_identity_envelope_is_verified(self) -> None:
+        request = envelope("identity-envelope-1", "umbrella.identity", {})
+        request["identity"] = classified_identity(
+            "integration-service",
+            "operator",
+            ["umbrella:read", "umbrella:operate", "universe:read", "universe:write"],
+            SERVICE_TOKEN,
+        )
+        response = self.kernel.handle_message(request)
+        self.assertTrue(response["ok"], response)
+        self.assertEqual(response["identity"]["subject"], "integration-service")
+        self.assertEqual(response["identity"]["role"], "operator")
+
+        forged = envelope("identity-envelope-2", "umbrella.identity", {})
+        forged["identity"] = classified_identity(
+            "integration-service", "admin", ["*"], SERVICE_TOKEN,
+        )
+        rejected = self.kernel.handle_message(forged)
+        self.assertFalse(rejected["ok"])
+        self.assertEqual(rejected["error"]["code"], "UNAUTHENTICATED")
+
+    def test_umbrella_physics_lanes_return_structured_json(self) -> None:
+        for lane in ("identity", "governance", "structural", "physics", "routing"):
+            response = self.kernel.handle_message(envelope(
+                f"umbrella-{lane}", f"umbrella.{lane}", {}, OBSERVER_TOKEN,
+            ))
+            self.assertTrue(response["ok"], response)
+            self.assertEqual(response["route"], ["orchestration"])
+            data = response["result"]["lanes"][0]["result"]["results"][0]["result"]["data"]
+            self.assertEqual(data["umbrella"], {"active": True, "lane": lane})
+            self.assertEqual(data["identity"]["role"], "observer")
+            self.assertIn("physics", data)
+
+        governance = self.kernel.handle_message(envelope(
+            "umbrella-observer-governance", "umbrella.governance", {}, OBSERVER_TOKEN,
+        ))
+        governance_data = governance["result"]["lanes"][0]["result"]["results"][0]["result"]["data"]
+        self.assertIn("read-only", governance_data["physics"]["constraints"])
 
     def test_autonomy_state_returns_scheduler_telemetry(self) -> None:
         response = self.kernel.handle_message(envelope("autonomy-1", "autonomy.state", {}, OBSERVER_TOKEN))

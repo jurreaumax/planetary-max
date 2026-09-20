@@ -1,0 +1,17 @@
+name = "portal-kernel"
+main = ".kernel-dist/kernel_worker.py"
+compatibility_date = "2026-09-19"
+compatibility_flags = ["python_workers"]
+workers_dev = false
+
+[observability]
+enabled = true
+
+[env.production]
+name = "portal-kernel"
+workers_dev = false
+
+[env.production.vars]
+PORTAL_SYSTEM_LICENSE_TIER = "enterprise"
+PORTAL_SERVICE_LICENSE_TIER = "professional"
+PORTAL_OBSERVER_LICENSE_TIER = "basic"

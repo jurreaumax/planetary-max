@@ -187,14 +187,11 @@ class MultiDomainScheduler:
             if (
                 message_type == "autonomy.state"
                 or message_type.startswith("universe.")
+                or message_type.startswith("umbrella.")
                 or message_type in {
                     "identity.physics.license",
                     "governance.engine.license",
                     "apex.alignment.advisory",
-                    "umbrella.sim.pack",
-                    "umbrella.market.forecast",
-                    "umbrella.identity.mirror",
-                    "umbrella.crossworld.access",
                     "structural.truth.license",
                 }
             ):

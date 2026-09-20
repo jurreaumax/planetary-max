@@ -9,7 +9,7 @@ function App() {
   const [input, setInput] = useState(DEFAULT_INPUT);
   const [activePath, setActivePath] = useState('');
   const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const endpointLabel = useMemo(() => {
     if (!API_BASE_URL) return 'API not configured';
@@ -17,7 +17,7 @@ function App() {
   }, []);
 
   async function runLane(lane) {
-    setError('');
+    setError(null);
     setResult(null);
     setActivePath(lane.path);
     try {
@@ -28,7 +28,10 @@ function App() {
       const response = await callUmbrellaLane(lane.path, { tier, input: parsedInput }, token);
       setResult({ lane, response });
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unknown request error');
+      setError({
+        code: requestError?.code || 'REQUEST_FAILED',
+        message: requestError instanceof Error ? requestError.message : 'Unknown request error',
+      });
     } finally {
       setActivePath('');
     }
@@ -133,13 +136,26 @@ function App() {
             {error ? 'REQUEST FAILED' : result ? 'NORMALIZED' : 'AWAITING OPERATION'}
           </span>
         </div>
-        {error && <div className="error-message"><strong>Lane error</strong><span>{error}</span></div>}
+        {error && (
+          <div className="error-message">
+            <strong>{error.code === 'KERNEL_UNAVAILABLE' ? 'Kernel unavailable' : error.code === 'UNAUTHENTICATED' ? 'Unauthorized identity' : 'Lane error'}</strong>
+            <span>{error.message}</span>
+          </div>
+        )}
         {result ? (
           <div className="result-grid">
             <div className="result-summary">
               <span>{result.lane.code}</span>
               <h3>{result.lane.title}</h3>
               <p>{result.response?.meta?.type || result.lane.path}</p>
+              {result.response?.meta?.identity && (
+                <div className="identity-envelope">
+                  <strong>Identity envelope</strong>
+                  <span>{result.response.meta.identity.subject || result.response.meta.identity.id}</span>
+                  <span>{result.response.meta.identity.role || result.response.meta.identity.roles?.[0]}</span>
+                  <small>{(result.response.meta.identity.capabilities || []).join(' · ')}</small>
+                </div>
+              )}
             </div>
             <pre>{JSON.stringify(result.response, null, 2)}</pre>
           </div>
