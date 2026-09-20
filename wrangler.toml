@@ -3,25 +3,38 @@ main = "src/index.ts"
 compatibility_date = "2024-09-20"
 compatibility_flags = ["nodejs_compat"]
 
-# Default environment (used by `wrangler deploy`)
-# Production environment (used by `wrangler deploy --env production`)
+# ============================================================
+# Durable Object: Portal Kernel (REQUIRED)
+# ============================================================
+[durable_objects]
+bindings = [
+  { name = "PORTAL_KERNEL", class_name = "PortalKernel" }
+]
+
+# ============================================================
+# Environment Variables (Portal-OS runtime)
+# ============================================================
+[vars]
+PORTAL_ENV = "production"
+PORTAL_KERNEL_SERVICE = "portal-kernel"
+PORTAL_IDENTITY_MODE = "strict"
+PORTAL_ROUTING = "edge"
+
+# ============================================================
+# Production Environment
+# ============================================================
 [env.production]
 name = "planetary-max-production"
 main = "src/index.ts"
 compatibility_date = "2024-09-20"
 compatibility_flags = ["nodejs_compat"]
 
-# Add bindings here if needed:
-# KV, DO, R2, D1, Queues, Secrets, etc.
-#
-# Example:
-# [[env.production.kv_namespaces]]
-# binding = "MY_KV"
-# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-#
-# [[env.production.durable_objects.bindings]]
-# name = "MY_OBJECT"
-# class_name = "MyDurableObject"
-#
-# [env.production.r2_buckets]
-# MY_BUCKET = { bucket_name = "my-bucket" }
+[env.production.vars]
+PORTAL_ENV = "production"
+PORTAL_KERNEL_SERVICE = "portal-kernel"
+PORTAL_IDENTITY_MODE = "strict"
+PORTAL_ROUTING = "edge"
+
+[[env.production.durable_objects.bindings]]
+name = "PORTAL_KERNEL"
+class_name = "PortalKernel"
