@@ -2,14 +2,14 @@ name = "planetary-max"
 main = "src/index.ts"
 compatibility_date = "2024-09-01"
 workers_dev = true
-routes = [
-  { pattern = "api.portal-os.com/*", zone_name = "portal-os.com" }
-]
 
 [vars]
 PLANETARY_MODE = "single"
 UMBRELLA_ENFORCEMENT = "strict"
 MAXOS_MODULE = "local"
+# Use the workers.dev hostname until api.portal-os.com has an active
+# Cloudflare custom hostname and certificate.
+API_BASE_URL = "https://planetary-max.jurreaumax.workers.dev"
 
 [build]
 command = "npm run build"
